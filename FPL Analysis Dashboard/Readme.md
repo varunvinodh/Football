@@ -50,7 +50,7 @@ To run the FPL Dashboard, follow these steps:
    - Adjust the cost range slider to select the budget.
    - Set the minimum minutes played using the slider.
    - Navigate through different tabs to view various metrics such as top performers, cost-effective players, and more.
-     [FPL Dashboard](FPLDashboard.png)
+     [FPL Dashboard](FPL_Dashboard.png)
 
 
 ## Contact
