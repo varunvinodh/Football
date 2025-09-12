@@ -1,1 +1,1 @@
-python FPL_Dashbard.py
+python main.py

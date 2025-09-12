@@ -6,10 +6,94 @@ import plotly.express as px
 import plotly.graph_objects as go
 import webbrowser
 from threading import Timer
+import requests
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+import logging
+import os
 
-# Load the dataset
+'''
+# Load from dataset
 file_path = 'Players_data_23-24.csv'  # Update with your file path
 players_data = pd.read_csv(file_path)
+'''
+
+##################################################### Logger ##################################################### 
+# Set up logger
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs.txt')
+
+logging.basicConfig(
+    level=logging.DEBUG,  # Minimum level of messages to log
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Output to console
+        logging.FileHandler(log_file)  # Output to file
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+##################################################### Get the Data ##################################################### 
+
+# Function to fetch and process the data
+def fetch_fpl_data():
+    logger.info("Fetching data from the Fantasy Premier League API...")
+    try:
+        # Convert each key to a DataFrame
+        # Step 1: Gather Data
+        response = requests.get("https://fantasy.premierleague.com/api/bootstrap-static/")
+        logger.info("Successfully fetched data from the API.")
+        logger.info("Data Processing...")
+        data = response.json()
+
+        # Step 2: Convert each key to a DataFrame
+        players_df       = pd.DataFrame(data['elements'])
+        events_df        = pd.DataFrame(data['events'])
+        game_settings_df = pd.DataFrame([data['game_settings']])
+        phases_df        = pd.DataFrame(data['phases'])
+        teams_df         = pd.DataFrame(data['teams'])
+        elements_df      = pd.DataFrame(data['elements'])
+        element_stats_df = pd.DataFrame(data['element_stats'])
+        element_types_df = pd.DataFrame(data['element_types'])
+
+        # Step 3: Merge players_df with element_types_df on 'element_type'
+        players_with_positions = pd.merge(players_df, element_types_df, left_on='element_type', right_on='id', suffixes=('_player', '_type'))
+
+        # Step 4: Data PreProcessing
+        players_with_positions['now_cost'] = players_with_positions['now_cost']/10
+        players_with_positions["expected_goals"] = pd.to_numeric(players_with_positions["expected_goals"], errors='coerce')
+        players_with_positions = pd.merge(players_with_positions, teams_df, left_on='team', right_on='id', how='left',suffixes = ('_Player','_Team'))
+
+        return players_with_positions
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching data from the API: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"An error occurred during data processing: {e}")
+        return None
+    
+# Fetching the data from the function
+players_data = fetch_fpl_data()
+if players_data is not None:
+    logging.info("Data processed successfully!")
+    # Optionally save or use the data further here
+else:
+    logging.error("Failed to fetch or process data.")
+
+##################################################### Dashboard Layout ##################################################### 
+# Determine the season based on the current month
+# Get the current date
+current_date = datetime.now()
+
+# If satement to dertermine the season
+if current_date.month >= 7:
+    start_year = current_date.year
+    end_year = current_date.year + 1
+else:
+    start_year = current_date.year - 1
+    end_year = current_date.year
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -21,7 +105,7 @@ cost_marks = {i: {'label': f'{i:.1f}', 'style': {'color': '#7f7f7f'}} for i in r
 
 # Layout of the app
 app.layout = html.Div(style={'font-family': 'Arial', 'margin': '20px'}, children=[
-    html.H1("FPL Dashboard 2023-2024", style={'text-align': 'center', 'color': '#2C3E50'}),
+    html.H1(f"FPL Dashboard  {start_year}-{end_year}", style={'text-align': 'center', 'color': '#2C3E50'}),
 
     html.Div([
         html.Label("Filter by Position:"),
@@ -226,4 +310,4 @@ def open_browser():
 # Run the app and open in browser
 if __name__ == '__main__':
     Timer(1, open_browser).start()  # Open browser after 1 second
-    app.run_server(debug=True, port=8051)  # Change the port number to 8051
+    app.run (debug=True, port=8051)  # Change the port number to 8051
